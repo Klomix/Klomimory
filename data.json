@@ -1,0 +1,35 @@
+{
+  "failedWords": [],
+  "statsWords": {
+    "Estación___La primavera": {
+      "word": "La primavera",
+      "translation": "весна",
+      "againCount": 0,
+      "hardCount": 1
+    },
+    "Estación___pasar": {
+      "word": "pasar",
+      "translation": "проводить (время)",
+      "againCount": 0,
+      "hardCount": 1
+    }
+  },
+  "activityLog": {
+    "2026-08-01": {
+      "cardsReviewed": 165,
+      "failedCount": 48
+    },
+    "2026-08-02": {
+      "cardsReviewed": 54,
+      "failedCount": 22
+    },
+    "2026-08-03": {
+      "cardsReviewed": 17,
+      "failedCount": 2
+    }
+  },
+  "streakFreezes": 1,
+  "lastFreezeEarnDate": "2026-08-03",
+  "dailyGoal": 20,
+  "cardOrderMode": "random"
+}

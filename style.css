@@ -1,0 +1,97 @@
+/* Выбор тем */
+.klomimory-title {
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.klomimory-action-box {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 10px;
+}
+
+.klomimory-toggle-btn {
+    font-size: 0.85em;
+    padding: 4px 10px;
+}
+
+/* Список тем */
+.klomimory-topics-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 350px;
+    overflow-y: auto;
+    margin-bottom: 20px;
+    padding-right: 5px;
+}
+
+/* Строка с темой */
+.klomimory-topic-row {
+    display: flex !important;
+    align-items: center !important;
+    flex-direction: row !important;
+    gap: 12px;
+    padding: 10px 14px;
+    background-color: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.15s ease;
+}
+
+.klomimory-topic-row:hover {
+    background-color: var(--background-secondary-alt);
+}
+
+/* Галочка */
+.klomimory-checkbox {
+    margin: 0 !important;
+    cursor: pointer;
+}
+
+/* Название темы */
+.klomimory-topic-name {
+    font-weight: 500;
+    font-size: 0.95em;
+    color: var(--text-normal);
+}
+
+/* Количество слов — отодвинуто вправо и затемнено */
+.klomimory-topic-count {
+    margin-left: auto; /* Прижимает к правому краю */
+    color: var(--text-faint); /* Более тёмный/приглушённый цвет */
+    font-size: 0.85em;
+    font-weight: normal;
+}
+
+.klomimory-start-btn {
+    width: 100%;
+    padding: 12px;
+    font-size: 1.1em;
+}
+
+/* Верхняя панель в игре */
+.klomimory-top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.klomimory-back-topics-btn {
+    font-size: 0.85em;
+    padding: 4px 10px;
+}
+
+.klomimory-badge-counter {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.klomimory-counter {
+    color: var(--text-muted);
+    font-size: 0.9em;
+}

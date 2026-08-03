@@ -1,0 +1,16 @@
+{
+  "name": "klomimory",
+  "version": "1.0.0",
+  "description": "Плагин Obsidian для изучения слов",
+  "main": "main.js",
+"scripts": {
+  "dev": "esbuild src/main.ts --bundle --external:obsidian --format=cjs --target=es2020 --outfile=main.js --watch",
+  "build": "esbuild src/main.ts --bundle --external:obsidian --format=cjs --target=es2020 --outfile=main.js --minify"
+},
+  "devDependencies": {
+    "esbuild": "^0.28.1",
+    "obsidian": "^1.13.1",
+    "tslib": "^2.8.1",
+    "typescript": "^7.0.2"
+  }
+}
