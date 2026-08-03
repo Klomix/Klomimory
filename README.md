@@ -20,6 +20,24 @@
 
 ---
 
+## Design 
+#### The menu when you log in to the app
+<p align="center">
+<img width="533" height="508" alt="изображение" src="https://github.com/user-attachments/assets/8a8ac52a-99eb-4344-8a58-b685b2bc17bb" />
+</p>
+
+#### Active Recall mode
+<p align="center">
+<img width="520" height="387" alt="изображение" src="https://github.com/user-attachments/assets/d8c3cb2e-4ffb-414f-8299-9f0842fca207" />
+</p>
+
+#### The right menu with statistics
+<p align="center">
+<img width="425" height="574" alt="изображение" align="center" src="https://github.com/user-attachments/assets/dac7b674-a80d-4fd3-8501-876ca7718a33" />
+</p>
+
+---
+
 ## 📝 Markdown Syntax Format
 
 Simply write your vocabulary lists inside any Markdown file:
