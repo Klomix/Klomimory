@@ -1,96 +1,67 @@
-```
-`\# Klomimory 🧠`
+# Klomimory 🧠
 
+**Klomimory** is a lightweight, active recall and flashcard study plugin for [Obsidian](https://obsidian.md). It allows you to transform simple markdown lists and vocabulary notes into interactive study sessions with SRS-like queues, custom direction controls, and statistics tracking.
 
-`\*\*Klomimory\*\* is a lightweight, active recall and flashcard study plugin for \[Obsidian\](https://obsidian.md). It allows you to transform simple markdown lists and vocabulary notes into interactive study sessions with SRS-like queues, custom direction controls, and statistics tracking.`
+---
 
+## ✨ Features
 
-`---`
+- **Zero-Setup Flashcard Parsing**: Automatically extracts flashcards from your active note using simple markdown syntax (`Word - Translation` or `Word - [Transcription] - Translation`).
+- **Topic Separation**: Headings (`#`, `##`, etc.) automatically turn into study topics, letting you select specific categories for review.
+- **Multiple Learning Modes**:
+  - **Active Recall**: Repeat missed words within the session until remembered.
+  - **Classic View**: Sequential flip-card practice without repeating.
+- **Flexible Card Directions**:
+  - `Word → Translation`
+  - `Translation → Word`
+  - `Random Side` (randomly picks front and back for each card)
+- **Hard Words Vault**: Mistakes are automatically collected in a separate queue, allowing focused sessions on tricky vocabulary.
+- **Comprehensive Statistics View**: Track daily review counts, mistake counts per word, and maintain streaks with built-in Streak Freeze mechanics.
 
+---
 
-`\#\# ✨ Features`
+## 📝 Markdown Syntax Format
 
+Simply write your vocabulary lists inside any Markdown file:
 
-`- \*\*Zero-Setup Flashcard Parsing\*\*: Automatically extracts flashcards from your active note using simple markdown syntax (\`Word - Translation\` or \`Word - \[Transcription\] - Translation\`).`
+```markdown
+# Spanish Vocabulary
 
-`- \*\*Topic Separation\*\*: Headings (\`\#\`, \`\#\#\`, etc.) automatically turn into study topics, letting you select specific categories for review.`
+## Greetings
+hola - [ˈola] - hello
+buenos días - good morning
 
-`- \*\*Multiple Learning Modes\*\*:`
+## Travel
+estación - [es.taˈsjon] - station
+playa - beach
 
-`  - \*\*Active Recall\*\*: Repeat missed words within the session until remembered.`
+🚀 Usage
 
-`  - \*\*Classic View\*\*: Sequential flip-card practice without repeating.`
+    Open a note with your vocabulary cards.
 
-`- \*\*Flexible Card Directions\*\*:`
+    Click the Brain icon in the left ribbon bar (or use the command palette Ctrl/Cmd + P -> Klomimory: Start Study Session).
 
-`  - \`Word → Translation\``
+    Select topics, card display directions, and study mode in the Study Settings modal.
 
-`  - \`Translation → Word\``
+    Use keyboard shortcuts during practice:
 
-`  - \`Random Side\` (randomly picks front and back for each card)`
+        Space / Enter: Show Answer / Good (3)
 
-`- \*\*Hard Words Vault\*\*: Mistakes are automatically collected in a separate queue, allowing focused sessions on tricky vocabulary.`
+        1: Again (Re-queue card)
 
-`- \*\*Comprehensive Statistics View\*\*: Track daily review counts, mistake counts per word, and maintain streaks with built-in Streak Freeze mechanics.`
+        2: Hard (Delay card)
 
+        3: Good (Pass card)
 
-`---`
+💻 Installation
+Manual Installation
 
+    Download main.js, manifest.json, and styles.css (if applicable) from the latest release.
 
-`\#\# 📝 Markdown Syntax Format`
+    Place them in your Obsidian vault's plugin directory: <vault>/.obsidian/plugins/klomimory/
 
+    Reload Obsidian and enable Klomimory in the Community Plugins tab.
 
-`Simply write your vocabulary lists inside any Markdown file:`
-
-
-`\`\`\`markdown`
-
-`\# Spanish Vocabulary`
-
-
-`\#\# Greetings`
-
-`hola - \[ˈola\] - hello`
-
-`buenos días - good morning`
-
-
-`\#\# Travel`
-
-`estación - \[es.taˈsjon\] - station`
-
-`playa - beach`
-```
-
-## 🚀 Usage
-
-1. Open a note with your vocabulary cards.
-
-2. Click the **Brain icon** in the left ribbon bar (or use the command palette `Ctrl/Cmd + P` -\> `Klomimory: Start Study Session`).
-
-3. Select topics, card display directions, and study mode in the **Study Settings** modal.
-
-4. Use keyboard shortcuts during practice:
-
-   - **Space / Enter**: Show Answer / Good (3)
-
-   - **1**: Again (Re-queue card)
-
-   - **2**: Hard (Delay card)
-
-   - **3**: Good (Pass card)
-
-## 💻 Installation
-
-### Manual Installation
-
-1. Download `main.js`, `manifest.json`, and `styles.css` (if applicable) from the latest release.
-
-2. Place them in your Obsidian vault's plugin directory: `\<vault\>/.obsidian/plugins/klomimory/`
-
-3. Reload Obsidian and enable **Klomimory** in the Community Plugins tab.
-
-## 📜 License
+📜 License
 
 MIT License. Feel free to contribute or adapt!
-
