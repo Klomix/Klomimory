@@ -36,8 +36,8 @@ estación - [es.taˈsjon] - station
 playa - beach
 ```
 
-🚀 Usage
-    Open a note with your vocabulary cards.
+## 🚀 Usage
+  Open a note with your vocabulary cards.
     Click the Brain icon in the left ribbon bar (or use the command palette Ctrl/Cmd + P -> Klomimory: Start Study Session).
     Select topics, card display directions, and study mode in the Study Settings modal.
     Use keyboard shortcuts during practice:
@@ -46,7 +46,7 @@ playa - beach
         2: Hard (Delay card)
         3: Good (Pass card)
 
-💻 Installation
+## 💻 Installation
 Manual Installation
     Download main.js, manifest.json, and styles.css (if applicable) from the latest release.
     Place them in your Obsidian vault's plugin directory: <vault>/.obsidian/plugins/klomimory/
