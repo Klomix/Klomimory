@@ -52,5 +52,5 @@ Manual Installation
     Place them in your Obsidian vault's plugin directory: <vault>/.obsidian/plugins/klomimory/
     Reload Obsidian and enable Klomimory in the Community Plugins tab.
 
-📜 License 
+## 📜 License 
 MIT
