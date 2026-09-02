@@ -30,7 +30,7 @@ export class KlomimoryStatsView extends ItemView {
         const logs = this.plugin.settings.activityLog || {};
         const today = new Date();
         const formatDate = (d: Date) => d.toISOString().split('T')[0];
-        
+
         let currentStreak = 0;
         let checkDate = new Date(today);
         let freezes = this.plugin.settings.streakFreezes || 0;
@@ -83,20 +83,17 @@ export class KlomimoryStatsView extends ItemView {
         const freezes = this.plugin.settings.streakFreezes || 0;
         const dailyGoal = this.plugin.settings.dailyGoal || 20;
 
-        // 1. Сетка метрик (Streak и Карточки за сегодня)
+        // Сетка метрик
         const metricsGrid = container.createEl('div');
         metricsGrid.style.display = 'grid';
         metricsGrid.style.gridTemplateColumns = '1fr 1fr';
         metricsGrid.style.gap = '8px';
         metricsGrid.style.marginBottom = '12px';
 
-        // Карточка Стрика с кликабельным индикатором заморозок
         this.renderStreakCard(metricsGrid, currentStreak, freezes);
-        
-        // Карточка Сегодня с возможностью быстрой смены цели по клику
         this.renderTodayCard(metricsGrid, reviewedTodayToday, dailyGoal);
 
-        // 2. Интерактивный прогресс-бар выполнения дневной цели
+        // Прогресс дневной цели
         const goalSection = container.createEl('div');
         goalSection.style.marginBottom = '15px';
         goalSection.style.padding = '8px';
@@ -109,7 +106,7 @@ export class KlomimoryStatsView extends ItemView {
         goalLabelRow.style.fontSize = '0.75em';
         goalLabelRow.style.marginBottom = '4px';
         goalLabelRow.style.color = 'var(--text-muted)';
-        
+
         goalLabelRow.createEl('span', { text: 'Daily Goal Progress' });
         const goalPercent = Math.min(Math.round((reviewedTodayToday / dailyGoal) * 100), 100);
         goalLabelRow.createEl('span', { text: `${goalPercent}%` });
@@ -125,7 +122,7 @@ export class KlomimoryStatsView extends ItemView {
         barFill.style.height = '100%';
         barFill.style.backgroundColor = 'var(--interactive-accent)';
 
-        // 3. Тепловая карта
+        // Тепловая карта (56 дней = 8 недель)
         const heatmapTitle = container.createEl('div', { text: 'Activity Heatmap' });
         heatmapTitle.style.fontWeight = 'bold';
         heatmapTitle.style.marginBottom = '6px';
@@ -142,8 +139,8 @@ export class KlomimoryStatsView extends ItemView {
         heatmapContainer.style.marginBottom = '15px';
 
         const today = new Date();
-        const days = 56;
-        
+        const days = 56; // Ровно 56 дней (8 колонок)
+
         for (let i = days - 1; i >= 0; i--) {
             const date = new Date(today);
             date.setDate(today.getDate() - i);
@@ -167,7 +164,6 @@ export class KlomimoryStatsView extends ItemView {
             }
         }
 
-        // Кнопка для открытия подробной статистики и графиков
         const detailedBtn = container.createEl('button', { text: 'Detailed Stats & Hard Words', cls: 'mod-cta' });
         detailedBtn.style.width = '100%';
         detailedBtn.onclick = () => {
@@ -182,12 +178,10 @@ export class KlomimoryStatsView extends ItemView {
         card.style.backgroundColor = 'var(--background-secondary)';
         card.style.textAlign = 'center';
         card.style.cursor = 'pointer';
-        card.title = 'Click for freeze info';
 
         const labelEl = card.createEl('div', { text: 'Streak' });
         labelEl.style.fontSize = '0.7em';
         labelEl.style.color = 'var(--text-muted)';
-        labelEl.style.marginBottom = '2px';
 
         const valEl = card.createEl('div', { text: `${streak}` });
         valEl.style.fontSize = '1.5em';
@@ -197,10 +191,9 @@ export class KlomimoryStatsView extends ItemView {
         const subEl = card.createEl('div', { text: `❄️ Freezes: ${freezes}` });
         subEl.style.fontSize = '0.6em';
         subEl.style.color = 'var(--text-muted)';
-        subEl.style.marginTop = '2px';
 
         card.onclick = () => {
-            new Notice(`Streak Freezes available: ${freezes}. Automatically granted every 3 active days of usage!`);
+            new Notice(`Streak Freezes: ${freezes}. Earned every 3 active days!`);
         };
     }
 
@@ -211,22 +204,19 @@ export class KlomimoryStatsView extends ItemView {
         card.style.backgroundColor = 'var(--background-secondary)';
         card.style.textAlign = 'center';
         card.style.cursor = 'pointer';
-        card.title = 'Click to change daily goal';
 
         const labelEl = card.createEl('div', { text: 'Today' });
         labelEl.style.fontSize = '0.7em';
         labelEl.style.color = 'var(--text-muted)';
-        labelEl.style.marginBottom = '2px';
 
         const valEl = card.createEl('div', { text: `${reviewed}` });
         valEl.style.fontSize = '1.5em';
         valEl.style.fontWeight = 'bold';
         valEl.style.color = 'var(--interactive-accent)';
 
-        const subEl = card.createEl('div', { text: `Goal: ${goal} (Edit)` });
+        const subEl = card.createEl('div', { text: `Goal: ${goal}` });
         subEl.style.fontSize = '0.6em';
         subEl.style.color = 'var(--text-muted)';
-        subEl.style.marginTop = '2px';
 
         card.onclick = () => {
             new DailyGoalModal(this.app, this.plugin).open();
@@ -234,7 +224,6 @@ export class KlomimoryStatsView extends ItemView {
     }
 }
 
-// Модальное окно для смены дневной цели прямо из меню
 export class DailyGoalModal extends Modal {
     plugin: KlomimoryPlugin;
 
@@ -261,10 +250,8 @@ export class DailyGoalModal extends Modal {
             if (!isNaN(val) && val > 0) {
                 this.plugin.settings.dailyGoal = val;
                 await this.plugin.saveSettings();
-                new Notice(`Daily goal updated to ${val} cards!`);
+                new Notice(`Goal updated to ${val} cards!`);
                 this.close();
-            } else {
-                new Notice('Please enter a valid number greater than 0.');
             }
         };
     }
@@ -274,7 +261,6 @@ export class DailyGoalModal extends Modal {
     }
 }
 
-// Модальное окно для детальной аналитики, топа трудных слов и графика точности (Accuracy)
 export class DetailedStatsModal extends Modal {
     plugin: KlomimoryPlugin;
 
@@ -322,7 +308,7 @@ export class DetailedStatsModal extends Modal {
         this.renderBox(grid, 'Active Days', totalDaysActive.toString());
         this.renderBox(grid, 'Accuracy Rate', `${accuracyRate}%`);
 
-        // Блок графика точности (Accuracy Progress Bar)
+        // График точности
         const accuracySection = contentEl.createEl('div');
         accuracySection.style.marginBottom = '20px';
         accuracySection.style.padding = '10px';
@@ -404,12 +390,11 @@ export class DetailedStatsModal extends Modal {
                 leftPart.style.display = 'flex';
                 leftPart.style.gap = '6px';
                 leftPart.style.alignItems = 'center';
-                leftPart.style.alignItems = 'center'; // Исправление ошибки .center
                 leftPart.createEl('span', { text: `${index + 1}.` }).style.color = 'var(--text-muted)';
                 leftPart.createEl('span', { text: card.word }).style.fontWeight = '600';
 
-                const statsText = rowTop.createEl('span', { 
-                    text: `Again - ${card.againCount || 0}  |  Hard - ${card.hardCount || 0}` 
+                const statsText = rowTop.createEl('span', {
+                    text: `Again - ${card.againCount || 0}  |  Hard - ${card.hardCount || 0}`
                 });
                 statsText.style.fontSize = '0.75em';
                 statsText.style.color = 'var(--text-muted)';
@@ -442,7 +427,7 @@ export class DetailedStatsModal extends Modal {
     private createProgressBarRow(parent: HTMLElement, label: string, percent: number, color: string) {
         const row = parent.createEl('div');
         row.style.display = 'flex';
-        row.style.alignItems = 'center'; // Исправление ошибки .center
+        row.style.alignItems = 'center';
         row.style.gap = '6px';
 
         const labelEl = row.createEl('span', { text: label });

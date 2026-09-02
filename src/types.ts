@@ -1,3 +1,7 @@
+export type CardType = 'word' | 'qa';
+export type StudyMode = 'classic' | 'repetition';
+export type CardOrderMode = 'word-first' | 'translation-first' | 'random';
+
 export interface WordCard {
     word: string;
     translation: string;
@@ -6,10 +10,8 @@ export interface WordCard {
     rawLine?: string;
     againCount?: number;
     hardCount?: number;
+    type?: CardType;
 }
-
-export type StudyMode = 'classic' | 'repetition';
-export type CardOrderMode = 'word-first' | 'translation-first' | 'random';
 
 export interface DailyActivity {
     cardsReviewed: number;
@@ -30,6 +32,10 @@ export interface KlomimorySettings {
     lastFreezeEarnDate: string;
     dailyGoal: number;
     cardOrderMode: CardOrderMode;
+    studyMode: StudyMode;
+    contentTypeFilter: 'all' | 'word' | 'qa';
+    filterType: 'all' | 'with' | 'without';
+    isRandomOrder: boolean;
 }
 
 export const DEFAULT_SETTINGS: KlomimorySettings = {
@@ -39,7 +45,11 @@ export const DEFAULT_SETTINGS: KlomimorySettings = {
     streakFreezes: 0,
     lastFreezeEarnDate: '',
     dailyGoal: 20,
-    cardOrderMode: 'word-first'
+    cardOrderMode: 'word-first',
+    studyMode: 'repetition',
+    contentTypeFilter: 'all',
+    filterType: 'all',
+    isRandomOrder: false
 };
 
 export const VIEW_TYPE_KLOMIMORY_STATS = 'klomimory-stats-view';

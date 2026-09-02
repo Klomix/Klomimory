@@ -1,4 +1,4 @@
-import { Plugin, Notice } from 'obsidian';
+import { Plugin, Notice, TFile } from 'obsidian';
 import { KlomimorySettings, DEFAULT_SETTINGS, VIEW_TYPE_KLOMIMORY_STATS, WordCard } from './types';
 import { KlomimoryStatsView } from './StatsView';
 import { TopicSelectionModal } from './Modals';
@@ -8,14 +8,14 @@ export default class KlomimoryPlugin extends Plugin {
 
     async onload() {
         await this.loadSettings();
-        this.checkAndGrantFreezes();
+        await this.checkAndGrantFreezes();
 
         this.registerView(
             VIEW_TYPE_KLOMIMORY_STATS,
             (leaf) => new KlomimoryStatsView(leaf, this)
         );
 
-        this.addRibbonIcon('brain', 'Klomimory', () => {
+        this.addRibbonIcon('brain', 'Klomimory Practice', () => {
             this.startStudySession();
         });
 
@@ -28,6 +28,12 @@ export default class KlomimoryPlugin extends Plugin {
             name: 'Open Statistics Panel',
             callback: () => this.activateStatsView(),
         });
+
+        this.addCommand({
+            id: 'start-klomimory-session',
+            name: 'Start Study Session',
+            callback: () => this.startStudySession(),
+        });
     }
 
     async loadSettings() {
@@ -36,7 +42,7 @@ export default class KlomimoryPlugin extends Plugin {
 
     async saveSettings() {
         await this.saveData(this.settings);
-        
+
         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_KLOMIMORY_STATS);
         leaves.forEach(leaf => {
             if (leaf.view instanceof KlomimoryStatsView) {
@@ -62,7 +68,6 @@ export default class KlomimoryPlugin extends Plugin {
         if (diffDays >= 3) {
             const addedFreezes = Math.floor(diffDays / 3);
             this.settings.streakFreezes = (this.settings.streakFreezes || 0) + addedFreezes;
-            
             lastDate.setDate(lastDate.getDate() + addedFreezes * 3);
             this.settings.lastFreezeEarnDate = lastDate.toISOString().split('T')[0];
             await this.saveSettings();
@@ -111,7 +116,7 @@ export default class KlomimoryPlugin extends Plugin {
 
     async addFailedWord(card: WordCard) {
         const exists = this.settings.failedWords.some(
-            c => c.word.toLowerCase() === card.word.toLowerCase() && 
+            c => c.word.toLowerCase() === card.word.toLowerCase() &&
                  c.translation.toLowerCase() === card.translation.toLowerCase()
         );
         if (!exists) {
@@ -122,10 +127,17 @@ export default class KlomimoryPlugin extends Plugin {
 
     async removeFailedWord(card: WordCard) {
         this.settings.failedWords = this.settings.failedWords.filter(
-            c => !(c.word.toLowerCase() === card.word.toLowerCase() && 
+            c => !(c.word.toLowerCase() === card.word.toLowerCase() &&
                    c.translation.toLowerCase() === card.translation.toLowerCase())
         );
         await this.saveSettings();
+    }
+
+    async loadCardsFromActiveFile(): Promise<WordCard[]> {
+        const activeFile = this.app.workspace.getActiveFile();
+        if (!activeFile) return [];
+        const content = await this.app.vault.read(activeFile);
+        return this.extractCardsFromText(content);
     }
 
     startStudySession() {
@@ -152,6 +164,7 @@ export default class KlomimoryPlugin extends Plugin {
 
         const headingRegex = /^#{1,6}\s+(.+)$/;
         const hrRegex = /^([-*_])\1{2,}\s*$/;
+        const qaRegex = /^(.+?)\s*::\s*(.+)$/;
         const withTransRegex = /^(.+?)\s*[-–—]\s*\[(.+?)\]\s*[-–—]\s*(.+)$/;
         const simpleRegex = /^(.+?)\s*[-–—]\s*(.+)$/;
 
@@ -175,14 +188,27 @@ export default class KlomimoryPlugin extends Plugin {
                 continue;
             }
 
+            const qaMatch = trimmedLine.match(qaRegex);
+            if (qaMatch) {
+                cards.push({
+                    word: cleanText(qaMatch[1]),
+                    translation: cleanText(qaMatch[2]),
+                    topic: currentTopic,
+                    rawLine: line,
+                    type: 'qa'
+                });
+                continue;
+            }
+
             const transMatch = trimmedLine.match(withTransRegex);
             if (transMatch) {
                 cards.push({
                     word: cleanText(transMatch[1]),
-                    transcription: transMatch2Clean(transMatch[2]),
+                    transcription: transMatch[2].trim(),
                     translation: cleanText(transMatch[3]),
                     topic: currentTopic,
-                    rawLine: line
+                    rawLine: line,
+                    type: 'word'
                 });
                 continue;
             }
@@ -195,17 +221,14 @@ export default class KlomimoryPlugin extends Plugin {
                         word: cleanedWord,
                         translation: cleanText(simpleMatch[2]),
                         topic: currentTopic,
-                        rawLine: line
+                        rawLine: line,
+                        type: 'word'
                     });
                 }
             }
         }
 
         return cards;
-
-        function transMatch2Clean(t: string) {
-            return t.trim();
-        }
     }
 
     async activateStatsView() {
