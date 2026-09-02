@@ -93,4 +93,4 @@ What is the capital of Spain? :: Madrid
 
 ## 📜 License
 
-[MIT](LICENSE) © [Your Name]
+[MIT](LICENSE) © Klomix
