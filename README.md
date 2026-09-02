@@ -23,7 +23,7 @@
 ## Design 
 #### The menu when you log in to the app
 <p align="center">
-<img width="533" height="508" alt="изображение" src="https://github.com/user-attachments/assets/8a8ac52a-99eb-4344-8a58-b685b2bc17bb" />
+<img width="645" height="761" alt="изображение" src="https://github.com/user-attachments/assets/f483e229-f588-4c7b-a087-d773279645bb" />
 </p>
 
 #### Active Recall mode
