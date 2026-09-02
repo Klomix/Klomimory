@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 {
   "id": "klomimory",
   "name": "Klomimory Word Cards",
@@ -7,3 +8,6 @@
   "author": "klomix",
   "isDesktopOnly": false
 }
+=======
+{"id":"klomimory","name":"Klomimory Word Cards","version":"1.0.0","minAppVersion":"0.15.0","description":"Plugin for learning words in the format: Word - [Transcription] - Translation","author":"klomix","isDesktopOnly":false}
+>>>>>>> cb48b69 (chore: update dependencies and fix css filename)
