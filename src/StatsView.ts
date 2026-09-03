@@ -122,7 +122,6 @@ export class KlomimoryStatsView extends ItemView {
         barFill.style.height = '100%';
         barFill.style.backgroundColor = 'var(--interactive-accent)';
 
-        // Тепловая карта (56 дней = 8 недель)
         const heatmapTitle = container.createEl('div', { text: 'Activity Heatmap' });
         heatmapTitle.style.fontWeight = 'bold';
         heatmapTitle.style.marginBottom = '6px';
@@ -139,7 +138,7 @@ export class KlomimoryStatsView extends ItemView {
         heatmapContainer.style.marginBottom = '15px';
 
         const today = new Date();
-        const days = 56; // Ровно 56 дней (8 колонок)
+        const days = 56; 
 
         for (let i = days - 1; i >= 0; i--) {
             const date = new Date(today);
@@ -308,7 +307,6 @@ export class DetailedStatsModal extends Modal {
         this.renderBox(grid, 'Active Days', totalDaysActive.toString());
         this.renderBox(grid, 'Accuracy Rate', `${accuracyRate}%`);
 
-        // График точности
         const accuracySection = contentEl.createEl('div');
         accuracySection.style.marginBottom = '20px';
         accuracySection.style.padding = '10px';
@@ -334,7 +332,6 @@ export class DetailedStatsModal extends Modal {
         accFill.style.height = '100%';
         accFill.style.backgroundColor = accuracyRate > 75 ? 'var(--text-success)' : accuracyRate > 40 ? 'var(--text-warning)' : 'var(--text-error)';
 
-        // Топ трудных слов
         const topHeaderRow = contentEl.createEl('div');
         topHeaderRow.style.display = 'flex';
         topHeaderRow.style.justifyContent = 'space-between';
