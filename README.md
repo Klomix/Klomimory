@@ -27,6 +27,10 @@
 
 ---
 
+## 💬 Discussion
+
+Join the discussion on Obsidian Forum: [Klomimory — Free SRS Flashcards Plugin](https://forum.obsidian.md/t/klomimory-free-srs-flashcards-plugin-for-language-learning/118242)
+
 ## Design 
 #### The menu when you log in to the app
 <p align="center">
