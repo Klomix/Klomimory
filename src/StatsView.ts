@@ -1,5 +1,7 @@
 import { ItemView, WorkspaceLeaf, Modal, App, Notice } from 'obsidian';
 import { VIEW_TYPE_KLOMIMORY_STATS } from './types';
+import { applyMissedDays, localDateStr, MAX_FREEZES, ACTIVE_DAYS_PER_FREEZE } from './streak';
+import { plainPreview } from './cardFormat';
 import type KlomimoryPlugin from './main';
 
 export class KlomimoryStatsView extends ItemView {
@@ -28,47 +30,17 @@ export class KlomimoryStatsView extends ItemView {
 
     private calculateStreakData() {
         const logs = this.plugin.settings.activityLog || {};
-        const today = new Date();
-        const formatDate = (d: Date) => d.toISOString().split('T')[0];
+        const todayStr = localDateStr();
 
-        let currentStreak = 0;
-        let checkDate = new Date(today);
-        let freezes = this.plugin.settings.streakFreezes || 0;
+        const state = applyMissedDays(this.plugin.getStreakState(), todayStr);
+        const reviewedToday = logs[todayStr]?.cardsReviewed || 0;
 
-        const todayStr = formatDate(today);
-        const reviewedToday = logs[todayStr]?.cardsReviewed > 0;
-
-        if (!reviewedToday) {
-            checkDate.setDate(checkDate.getDate() - 1);
-        }
-
-        while (true) {
-            const dateStr = formatDate(checkDate);
-            const count = logs[dateStr]?.cardsReviewed || 0;
-
-            if (count > 0) {
-                currentStreak++;
-                checkDate.setDate(checkDate.getDate() - 1);
-            } else {
-                if (freezes > 0) {
-                    freezes--;
-                    currentStreak++;
-                    checkDate.setDate(checkDate.getDate() - 1);
-                } else {
-                    if (formatDate(checkDate) === todayStr && !reviewedToday) {
-                        checkDate.setDate(checkDate.getDate() - 1);
-                        continue;
-                    }
-                    break;
-                }
-            }
-        }
-
-        if (reviewedToday) {
-            currentStreak = Math.max(currentStreak, 1);
-        }
-
-        return { currentStreak, reviewedTodayToday: reviewedToday ? logs[todayStr].cardsReviewed : 0 };
+        return {
+            currentStreak: state.streakCount,
+            freezes: state.streakFreezes,
+            freezeProgress: state.freezeProgress,
+            reviewedTodayToday: reviewedToday
+        };
     }
 
     render() {
@@ -79,21 +51,18 @@ export class KlomimoryStatsView extends ItemView {
         const header = container.createEl('h4', { text: 'Study Progress' });
         header.style.margin = '10px 0 12px 0';
 
-        const { currentStreak, reviewedTodayToday } = this.calculateStreakData();
-        const freezes = this.plugin.settings.streakFreezes || 0;
+        const { currentStreak, reviewedTodayToday, freezes, freezeProgress } = this.calculateStreakData();
         const dailyGoal = this.plugin.settings.dailyGoal || 20;
 
-        // Сетка метрик
         const metricsGrid = container.createEl('div');
         metricsGrid.style.display = 'grid';
         metricsGrid.style.gridTemplateColumns = '1fr 1fr';
         metricsGrid.style.gap = '8px';
         metricsGrid.style.marginBottom = '12px';
 
-        this.renderStreakCard(metricsGrid, currentStreak, freezes);
+        this.renderStreakCard(metricsGrid, currentStreak, freezes, freezeProgress);
         this.renderTodayCard(metricsGrid, reviewedTodayToday, dailyGoal);
 
-        // Прогресс дневной цели
         const goalSection = container.createEl('div');
         goalSection.style.marginBottom = '15px';
         goalSection.style.padding = '8px';
@@ -138,12 +107,12 @@ export class KlomimoryStatsView extends ItemView {
         heatmapContainer.style.marginBottom = '15px';
 
         const today = new Date();
-        const days = 56; 
+        const days = 56;
 
         for (let i = days - 1; i >= 0; i--) {
             const date = new Date(today);
             date.setDate(today.getDate() - i);
-            const dateStr = date.toISOString().split('T')[0];
+            const dateStr = localDateStr(date);
             const count = logs[dateStr]?.cardsReviewed || 0;
 
             const cell = heatmapContainer.createEl('div');
@@ -170,7 +139,7 @@ export class KlomimoryStatsView extends ItemView {
         };
     }
 
-    private renderStreakCard(parent: HTMLElement, streak: number, freezes: number) {
+    private renderStreakCard(parent: HTMLElement, streak: number, freezes: number, freezeProgress: number) {
         const card = parent.createEl('div');
         card.style.padding = '8px';
         card.style.borderRadius = '6px';
@@ -187,12 +156,16 @@ export class KlomimoryStatsView extends ItemView {
         valEl.style.fontWeight = 'bold';
         valEl.style.color = 'var(--interactive-accent)';
 
-        const subEl = card.createEl('div', { text: `❄️ Freezes: ${freezes}` });
+        const subEl = card.createEl('div', { text: `❄️ Freezes: ${freezes}/${MAX_FREEZES}` });
         subEl.style.fontSize = '0.6em';
         subEl.style.color = 'var(--text-muted)';
 
         card.onclick = () => {
-            new Notice(`Streak Freezes: ${freezes}. Earned every 3 active days!`);
+            new Notice(
+                `Streak Freezes: ${freezes}/${MAX_FREEZES}. ` +
+                `You earn one every ${ACTIVE_DAYS_PER_FREEZE} active days (${freezeProgress}/${ACTIVE_DAYS_PER_FREEZE} so far). ` +
+                `A missed day uses one freeze; with no freezes left the streak resets.`
+            );
         };
     }
 
@@ -388,7 +361,7 @@ export class DetailedStatsModal extends Modal {
                 leftPart.style.gap = '6px';
                 leftPart.style.alignItems = 'center';
                 leftPart.createEl('span', { text: `${index + 1}.` }).style.color = 'var(--text-muted)';
-                leftPart.createEl('span', { text: card.word }).style.fontWeight = '600';
+                leftPart.createEl('span', { text: plainPreview(card.word, 60) }).style.fontWeight = '600';
 
                 const statsText = rowTop.createEl('span', {
                     text: `Again - ${card.againCount || 0}  |  Hard - ${card.hardCount || 0}`
@@ -417,8 +390,9 @@ export class DetailedStatsModal extends Modal {
         box.style.backgroundColor = 'var(--background-secondary)';
         box.style.textAlign = 'center';
         box.createEl('div', { text: val }).style.fontSize = '1.2em';
-        box.createEl('div', { text: label }).style.fontSize = '0.7em';
-        box.createEl('div', { text: label }).style.color = 'var(--text-muted)';
+        const labelEl = box.createEl('div', { text: label });
+        labelEl.style.fontSize = '0.7em';
+        labelEl.style.color = 'var(--text-muted)';
     }
 
     private createProgressBarRow(parent: HTMLElement, label: string, percent: number, color: string) {

@@ -1,14 +1,20 @@
 import { Plugin, Notice, TFile } from 'obsidian';
-import { KlomimorySettings, DEFAULT_SETTINGS, VIEW_TYPE_KLOMIMORY_STATS, WordCard } from './types';
+import {
+    KlomimorySettings, DEFAULT_SETTINGS, VIEW_TYPE_KLOMIMORY_STATS, WordCard, ProgressSnapshot
+} from './types';
 import { KlomimoryStatsView } from './StatsView';
 import { TopicSelectionModal } from './Modals';
+import { parseCards, serializeCard, replaceCardBlock, CardFields } from './cardFormat';
+import {
+    StreakState, applyMissedDays, registerStudyDay, migrateFromActivityLog, localDateStr, clampFreezes
+} from './streak';
 
 export default class KlomimoryPlugin extends Plugin {
     settings: KlomimorySettings = DEFAULT_SETTINGS;
 
     async onload() {
         await this.loadSettings();
-        await this.checkAndGrantFreezes();
+        await this.refreshStreak();
 
         this.registerView(
             VIEW_TYPE_KLOMIMORY_STATS,
@@ -37,7 +43,18 @@ export default class KlomimoryPlugin extends Plugin {
     }
 
     async loadSettings() {
-        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+        const data = await this.loadData();
+        this.settings = Object.assign({}, JSON.parse(JSON.stringify(DEFAULT_SETTINGS)), data);
+
+        if (!this.settings.streakMigrated) {
+            this.setStreakState(
+                migrateFromActivityLog(this.settings.activityLog || {}, this.settings.streakFreezes || 0)
+            );
+            this.settings.streakMigrated = true;
+            await this.saveData(this.settings);
+        } else {
+            this.settings.streakFreezes = clampFreezes(this.settings.streakFreezes);
+        }
     }
 
     async saveSettings() {
@@ -51,31 +68,34 @@ export default class KlomimoryPlugin extends Plugin {
         });
     }
 
-    async checkAndGrantFreezes() {
-        const todayStr = new Date().toISOString().split('T')[0];
-        if (!this.settings.lastFreezeEarnDate) {
-            this.settings.lastFreezeEarnDate = todayStr;
-            this.settings.streakFreezes = (this.settings.streakFreezes || 0) + 1;
-            await this.saveSettings();
-            return;
-        }
+  getStreakState(): StreakState {
+        const s = this.settings;
+        return {
+            streakCount: s.streakCount || 0,
+            lastStreakDate: s.lastStreakDate || '',
+            streakFreezes: clampFreezes(s.streakFreezes),
+            freezeProgress: s.freezeProgress || 0
+        };
+    }
 
-        const lastDate = new Date(this.settings.lastFreezeEarnDate);
-        const currentDate = new Date(todayStr);
-        const diffTime = currentDate.getTime() - lastDate.getTime();
-        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    setStreakState(st: StreakState) {
+        this.settings.streakCount = st.streakCount;
+        this.settings.lastStreakDate = st.lastStreakDate;
+        this.settings.streakFreezes = st.streakFreezes;
+        this.settings.freezeProgress = st.freezeProgress;
+    }
 
-        if (diffDays >= 3) {
-            const addedFreezes = Math.floor(diffDays / 3);
-            this.settings.streakFreezes = (this.settings.streakFreezes || 0) + addedFreezes;
-            lastDate.setDate(lastDate.getDate() + addedFreezes * 3);
-            this.settings.lastFreezeEarnDate = lastDate.toISOString().split('T')[0];
+    async refreshStreak() {
+        const before = this.getStreakState();
+        const after = applyMissedDays(before, localDateStr());
+        if (JSON.stringify(before) !== JSON.stringify(after)) {
+            this.setStreakState(after);
             await this.saveSettings();
         }
     }
 
     async logActivity(isFailed: boolean = false) {
-        const today = new Date().toISOString().split('T')[0];
+        const today = localDateStr();
         if (!this.settings.activityLog) {
             this.settings.activityLog = {};
         }
@@ -86,12 +106,19 @@ export default class KlomimoryPlugin extends Plugin {
         if (isFailed) {
             this.settings.activityLog[today].failedCount += 1;
         }
-        await this.checkAndGrantFreezes();
+
+        const { state } = registerStudyDay(this.getStreakState(), today);
+        this.setStreakState(state);
+
         await this.saveSettings();
     }
 
+    private statsKey(card: WordCard): string {
+        return `${card.topic}___${card.word}`;
+    }
+
     async recordMistake(card: WordCard, type: 'again' | 'hard') {
-        const key = `${card.topic}___${card.word}`;
+        const key = this.statsKey(card);
         if (!this.settings.statsWords) {
             this.settings.statsWords = {};
         }
@@ -133,11 +160,116 @@ export default class KlomimoryPlugin extends Plugin {
         await this.saveSettings();
     }
 
+    captureProgress(card: WordCard): ProgressSnapshot {
+        const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
+        const statsKey = this.statsKey(card);
+        const dayKey = localDateStr();
+        const statsEntry = this.settings.statsWords?.[statsKey];
+        const dayEntry = this.settings.activityLog?.[dayKey];
+
+        return {
+            statsKey,
+            statsEntry: statsEntry ? clone(statsEntry) : undefined,
+            dayKey,
+            dayEntry: dayEntry ? clone(dayEntry) : undefined,
+            failedWords: [...this.settings.failedWords],
+            streak: this.getStreakState()
+        };
+    }
+
+    async restoreProgress(snap: ProgressSnapshot) {
+        if (!this.settings.statsWords) this.settings.statsWords = {};
+        if (snap.statsEntry) this.settings.statsWords[snap.statsKey] = snap.statsEntry;
+        else delete this.settings.statsWords[snap.statsKey];
+
+        if (!this.settings.activityLog) this.settings.activityLog = {};
+        if (snap.dayEntry) this.settings.activityLog[snap.dayKey] = snap.dayEntry;
+        else delete this.settings.activityLog[snap.dayKey];
+
+        this.settings.failedWords = snap.failedWords;
+        this.setStreakState(snap.streak);
+
+        await this.saveSettings();
+    }
+
+    private resolveSourceFile(card: WordCard): TFile | null {
+        if (card.sourcePath) {
+            const f = this.app.vault.getAbstractFileByPath(card.sourcePath);
+            if (f instanceof TFile) return f;
+        }
+        return this.app.workspace.getActiveFile();
+    }
+
+  async applyCardEdit(
+        card: WordCard,
+        next: CardFields,
+        others: WordCard[] = []
+    ): Promise<{ savedToFile: boolean; oldKey: string; newKey: string; oldWord: string; oldTranslation: string }> {
+        const oldKey = this.statsKey(card);
+        const oldWord = card.word;
+        const oldTranslation = card.translation;
+        const isSame = (c: WordCard) =>
+            c === card || (c.topic === card.topic && c.word === oldWord && c.translation === oldTranslation);
+
+        const targets = new Set<WordCard>([card]);
+        [...others, ...this.settings.failedWords].forEach(c => { if (isSame(c)) targets.add(c); });
+
+        const newRaw = serializeCard(card, next);
+        let savedToFile = false as boolean;
+        const file = this.resolveSourceFile(card);
+        if (file) {
+            await this.app.vault.process(file, (content) => {
+                const updated = replaceCardBlock(content, card, newRaw);
+                if (updated === null) return content;
+                savedToFile = true;
+                return updated;
+            });
+        }
+
+        const parsed = parseCards(newRaw, card.sourcePath)[0];
+        const fields: CardFields = parsed
+            ? { word: parsed.word, translation: parsed.translation, transcription: parsed.transcription }
+            : next;
+
+        targets.forEach(c => {
+            c.word = fields.word;
+            c.translation = fields.translation;
+            if ((c.type || 'word') === 'word') c.transcription = fields.transcription || undefined;
+            if (savedToFile) {
+                c.rawText = newRaw;
+                c.rawLine = newRaw.split('\n')[0];
+            }
+        });
+
+        const newKey = this.statsKey(card);
+        const stats = this.settings.statsWords || (this.settings.statsWords = {});
+        const oldEntry = stats[oldKey];
+        if (oldEntry) {
+            if (newKey !== oldKey) {
+                const existing = stats[newKey];
+                if (existing) {
+                    existing.againCount += oldEntry.againCount;
+                    existing.hardCount += oldEntry.hardCount;
+                    existing.word = fields.word;
+                    existing.translation = fields.translation;
+                } else {
+                    stats[newKey] = { ...oldEntry, word: fields.word, translation: fields.translation };
+                }
+                delete stats[oldKey];
+            } else {
+                oldEntry.translation = fields.translation;
+            }
+        }
+
+        await this.saveSettings();
+        return { savedToFile, oldKey, newKey, oldWord, oldTranslation };
+    }
+
     async loadCardsFromActiveFile(): Promise<WordCard[]> {
         const activeFile = this.app.workspace.getActiveFile();
         if (!activeFile) return [];
         const content = await this.app.vault.read(activeFile);
-        return this.extractCardsFromText(content);
+        return this.extractCardsFromText(content, activeFile.path);
     }
 
     startStudySession() {
@@ -148,7 +280,7 @@ export default class KlomimoryPlugin extends Plugin {
         }
 
         this.app.vault.read(activeFile).then((content) => {
-            const cards = this.extractCardsFromText(content);
+            const cards = this.extractCardsFromText(content, activeFile.path);
             if (cards.length === 0 && this.settings.failedWords.length === 0) {
                 new Notice('No word cards found in this note and no hard words stored.');
             } else {
@@ -157,78 +289,8 @@ export default class KlomimoryPlugin extends Plugin {
         });
     }
 
-    extractCardsFromText(text: string): WordCard[] {
-        const lines = text.split('\n');
-        const cards: WordCard[] = [];
-        let currentTopic = 'Untagged';
-
-        const headingRegex = /^#{1,6}\s+(.+)$/;
-        const hrRegex = /^([-*_])\1{2,}\s*$/;
-        const qaRegex = /^(.+?)\s*::\s*(.+)$/;
-        const withTransRegex = /^(.+?)\s*[-–—]\s*\[(.+?)\]\s*[-–—]\s*(.+)$/;
-        const simpleRegex = /^(.+?)\s*[-–—]\s*(.+)$/;
-
-        const cleanText = (str: string) => {
-            return str
-                .replace(/^[-*+]\s+/, '')
-                .replace(/^\d+\.\s+/, '')
-                .replace(/[*_]{1,3}/g, '')
-                .trim();
-        };
-
-        for (const line of lines) {
-            const trimmedLine = line.trim();
-            if (!trimmedLine || hrRegex.test(trimmedLine)) {
-                continue;
-            }
-
-            const headingMatch = trimmedLine.match(headingRegex);
-            if (headingMatch) {
-                currentTopic = headingMatch[1].trim();
-                continue;
-            }
-
-            const qaMatch = trimmedLine.match(qaRegex);
-            if (qaMatch) {
-                cards.push({
-                    word: cleanText(qaMatch[1]),
-                    translation: cleanText(qaMatch[2]),
-                    topic: currentTopic,
-                    rawLine: line,
-                    type: 'qa'
-                });
-                continue;
-            }
-
-            const transMatch = trimmedLine.match(withTransRegex);
-            if (transMatch) {
-                cards.push({
-                    word: cleanText(transMatch[1]),
-                    transcription: transMatch[2].trim(),
-                    translation: cleanText(transMatch[3]),
-                    topic: currentTopic,
-                    rawLine: line,
-                    type: 'word'
-                });
-                continue;
-            }
-
-            const simpleMatch = trimmedLine.match(simpleRegex);
-            if (simpleMatch) {
-                const cleanedWord = cleanText(simpleMatch[1]);
-                if (cleanedWord.length > 0) {
-                    cards.push({
-                        word: cleanedWord,
-                        translation: cleanText(simpleMatch[2]),
-                        topic: currentTopic,
-                        rawLine: line,
-                        type: 'word'
-                    });
-                }
-            }
-        }
-
-        return cards;
+    extractCardsFromText(text: string, sourcePath?: string): WordCard[] {
+        return parseCards(text, sourcePath);
     }
 
     async activateStatsView() {

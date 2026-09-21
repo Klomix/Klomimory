@@ -1,8 +1,9 @@
-import { App, Modal, setIcon, Notice } from 'obsidian';
-import { WordCard, StudyMode, CardOrderMode } from './types';
+import {
+    App, Modal, setIcon, Notice, Component, MarkdownRenderer, FuzzySuggestModal, TFile, normalizePath
+} from 'obsidian';
+import { WordCard, StudyMode, CardOrderMode, CardType, ProgressSnapshot } from './types';
+import { CardFields, normalizeTermMarkdown, serializeCard, validateCardFields } from './cardFormat';
 import type KlomimoryPlugin from './main';
-
-export type CardType = 'word' | 'qa';
 
 export class TopicSelectionModal extends Modal {
     allCards: WordCard[];
@@ -391,6 +392,88 @@ export class TopicSelectionModal extends Modal {
     }
 }
 
+const IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif'];
+
+type TextField = HTMLInputElement | HTMLTextAreaElement;
+
+class ImagePickerModal extends FuzzySuggestModal<TFile> {
+    private onPick: (file: TFile) => void;
+
+    constructor(app: App, onPick: (file: TFile) => void) {
+        super(app);
+        this.onPick = onPick;
+        this.setPlaceholder('Choose an image from the vault...');
+    }
+
+    getItems(): TFile[] {
+        return this.app.vault.getFiles().filter(f => IMAGE_EXTS.includes(f.extension.toLowerCase()));
+    }
+
+    getItemText(item: TFile): string {
+        return item.path;
+    }
+
+    onChooseItem(item: TFile): void {
+        this.onPick(item);
+    }
+}
+
+function insertAtCursor(el: TextField, text: string) {
+    el.focus();
+    const start = el.selectionStart ?? el.value.length;
+    const end = el.selectionEnd ?? el.value.length;
+    el.setRangeText(text, start, end, 'end');
+    el.dispatchEvent(new Event('input'));
+}
+
+/** Сохраняет картинку из буфера обмена в хранилище (в папку вложений Obsidian) и возвращает embed-ссылку. */
+async function savePastedImage(app: App, blob: File, sourcePath: string): Promise<string> {
+    const ext = (blob.type.split('/')[1] || 'png').replace('jpeg', 'jpg').replace('svg+xml', 'svg');
+    const name = `Klomimory image ${Date.now()}.${ext}`;
+
+    const fm = app.fileManager as any;
+    const path: string = typeof fm.getAvailablePathForAttachment === 'function'
+        ? await fm.getAvailablePathForAttachment(name, sourcePath)
+        : normalizePath(name);
+
+    const created = await app.vault.createBinary(path, await blob.arrayBuffer());
+    return `![[${app.metadataCache.fileToLinktext(created, sourcePath)}]]`;
+}
+
+function addImageTools(app: App, parent: HTMLElement, fields: TextField[], getSourcePath: () => string) {
+    let target: TextField = fields[fields.length - 1];
+    fields.forEach(f => f.addEventListener('focus', () => { target = f; }));
+
+    const row = parent.createEl('div', { cls: 'klomimory-image-tools' });
+    const btn = row.createEl('button', { text: '🖼 Insert image' });
+    btn.onclick = (e) => {
+        e.preventDefault();
+        new ImagePickerModal(app, (file) => {
+            const link = `![[${app.metadataCache.fileToLinktext(file, getSourcePath())}]]`;
+            insertAtCursor(target, link);
+        }).open();
+    };
+    row.createEl('span', { text: 'or paste an image (Ctrl/Cmd+V)', cls: 'klomimory-hint' });
+
+    fields.forEach(field => {
+        field.addEventListener('paste', (evt: Event) => {
+            const e = evt as ClipboardEvent;
+            const items = Array.from(e.clipboardData?.items ?? []);
+            const imageItem = items.find(i => i.kind === 'file' && i.type.startsWith('image/'));
+            const file = imageItem?.getAsFile();
+            if (!file) return;
+
+            e.preventDefault();
+            savePastedImage(app, file, getSourcePath())
+                .then(link => insertAtCursor(field, link))
+                .catch(err => {
+                    console.error('Klomimory: failed to save pasted image', err);
+                    new Notice('Could not save the pasted image.');
+                });
+        });
+    });
+}
+
 export class AddWordModal extends Modal {
     plugin: KlomimoryPlugin;
     allCards: WordCard[];
@@ -432,10 +515,13 @@ export class AddWordModal extends Modal {
         if (this.cardType === 'qa') qaTab.classList.add('mod-cta');
         qaTab.onclick = () => { this.cardType = 'qa'; this.render(); };
 
-        const firstLabel = this.cardType === 'word' ? 'Word:' : 'Question / Term:';
-        const firstPlaceholder = this.cardType === 'word' ? 'Enter word...' : 'Enter question or term...';
-        const secondLabel = this.cardType === 'word' ? 'Translation:' : 'Answer / Definition:';
-        const secondPlaceholder = this.cardType === 'word' ? 'Enter translation...' : 'Enter answer or definition...';
+        const isQa = this.cardType === 'qa';
+        const firstLabel = isQa ? 'Question / Term:' : 'Word:';
+        const firstPlaceholder = isQa ? 'Enter question or term...' : 'Enter word...';
+        const secondLabel = isQa ? 'Answer / Definition:' : 'Translation:';
+        const secondPlaceholder = isQa
+            ? 'Enter answer or definition...\n- extra lines belong to the answer\n- markdown and images are supported'
+            : 'Enter translation...';
 
         const createLabel = (text: string) => {
             const el = contentEl.createEl('div', { text });
@@ -452,7 +538,7 @@ export class AddWordModal extends Modal {
         firstInput.style.marginBottom = '12px';
 
         let transInput: HTMLInputElement | null = null;
-        if (this.cardType === 'word') {
+        if (!isQa) {
             createLabel('Transcription (optional):');
             transInput = contentEl.createEl('input', { type: 'text', placeholder: 'Enter transcription...' });
             transInput.style.width = '100%';
@@ -461,10 +547,31 @@ export class AddWordModal extends Modal {
         }
 
         createLabel(secondLabel);
-        const secondInput = contentEl.createEl('input', { type: 'text', placeholder: secondPlaceholder });
-        secondInput.style.width = '100%';
-        secondInput.style.boxSizing = 'border-box';
-        secondInput.style.marginBottom = '12px';
+        let secondInput: TextField;
+        if (isQa) {
+            const area = contentEl.createEl('textarea', { placeholder: secondPlaceholder });
+            area.rows = 5;
+            area.style.width = '100%';
+            area.style.boxSizing = 'border-box';
+            area.style.marginBottom = '8px';
+            area.style.resize = 'vertical';
+            secondInput = area;
+        } else {
+            const inp = contentEl.createEl('input', { type: 'text', placeholder: secondPlaceholder });
+            inp.style.width = '100%';
+            inp.style.boxSizing = 'border-box';
+            inp.style.marginBottom = '12px';
+            secondInput = inp;
+        }
+
+        if (isQa) {
+            addImageTools(
+                this.app,
+                contentEl,
+                [firstInput, secondInput],
+                () => this.app.workspace.getActiveFile()?.path ?? ''
+            );
+        }
 
         createLabel('Topic (Header):');
 
@@ -503,13 +610,19 @@ export class AddWordModal extends Modal {
         saveBtn.style.minHeight = '40px';
         saveBtn.onclick = async () => {
             const val1 = firstInput.value.trim();
-            const val2 = secondInput.value.trim();
-            const transcription = transInput ? transInput.value.trim() : '';
+            const val2 = isQa ? secondInput.value : secondInput.value.trim();
+            const transcription = transInput ? transInput.value.trim().replace(/^\[|\]$/g, '').trim() : '';
             const selectedTopicValue = topicSelect.style.display === 'none' ? '__new__' : topicSelect.value;
             let topic = selectedTopicValue === '__new__' ? newTopicInput.value.trim() : selectedTopicValue;
 
-            if (!val1 || !val2 || !topic) {
+            if (!val1 || !val2.trim() || !topic) {
                 new Notice('Please fill in all required fields!');
+                return;
+            }
+
+            const validationError = validateCardFields(this.cardType, { word: val1, translation: val2 });
+            if (validationError) {
+                new Notice(validationError);
                 return;
             }
 
@@ -518,6 +631,10 @@ export class AddWordModal extends Modal {
                 new Notice('No active file found to append the card!');
                 return;
             }
+
+            const formattedLine = isQa
+                ? serializeCard({ word: '', translation: '', topic, type: 'qa' }, { word: val1, translation: val2 })
+                : (transcription ? `- ${val1} - [${transcription}] - ${val2}` : `- ${val1} - ${val2}`);
 
             await this.app.vault.process(activeFile, (content) => {
                 const lines = content.split('\n');
@@ -533,10 +650,6 @@ export class AddWordModal extends Modal {
                         }
                     }
                 }
-
-                let formattedLine = this.cardType === 'word'
-                    ? (transcription ? `- ${val1} - [${transcription}] - ${val2}` : `- ${val1} - ${val2}`)
-                    : `${val1} :: ${val2}`;
 
                 if (headerIndex !== -1) {
                     let nextHeaderIdx = headerIndex + 1;
@@ -575,6 +688,12 @@ export class AddWordModal extends Modal {
     }
 }
 
+interface UndoEntry {
+    queue: WordCard[];
+    failedInSession: string[];
+    progress: ProgressSnapshot;
+}
+
 export class CardStudyModal extends Modal {
     cardsQueue: WordCard[];
     allCards: WordCard[];
@@ -586,6 +705,10 @@ export class CardStudyModal extends Modal {
     showTranslation: boolean = false;
 
     private failedInThisSession: Set<string> = new Set();
+    private history: UndoEntry[] = [];
+    private isEditing = false;
+    private busy = false;
+    private mdComponent = new Component();
 
     constructor(
         app: App,
@@ -605,12 +728,14 @@ export class CardStudyModal extends Modal {
     }
 
     onOpen() {
+        this.mdComponent.load();
         window.addEventListener('keydown', this.handleKeyPress);
         this.renderCard();
     }
 
     onClose() {
         window.removeEventListener('keydown', this.handleKeyPress);
+        this.mdComponent.unload();
         this.contentEl.empty();
     }
 
@@ -620,11 +745,22 @@ export class CardStudyModal extends Modal {
         new TopicSelectionModal(this.app, this.allCards, this.plugin).open();
     };
 
-    private handleKeyPress = async (evt: KeyboardEvent) => {
-        if (evt.target instanceof HTMLInputElement || evt.target instanceof HTMLTextAreaElement) return;
+  private handleKeyPress = async (evt: KeyboardEvent) => {
+        if (this.isEditing) return;
 
-        if ((this.studyMode === 'repetition' && this.cardsQueue.length === 0) ||
-            (this.studyMode === 'classic' && this.currentIndex >= this.cardsQueue.length)) {
+        const target = evt.target as HTMLElement | null;
+        if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target?.isContentEditable) return;
+        if (evt.repeat || evt.ctrlKey || evt.metaKey || evt.altKey) return;
+
+        const isNext = evt.code === 'Space' || evt.code === 'Enter' || evt.code === 'ArrowRight';
+
+        if (evt.code === 'ArrowLeft') {
+            evt.preventDefault();
+            await this.handleBack();
+            return;
+        }
+
+        if (this.isFinished()) {
             if (evt.code === 'Space' || evt.code === 'Enter') {
                 evt.preventDefault();
                 await this.finishAndReturnToTopics();
@@ -633,7 +769,7 @@ export class CardStudyModal extends Modal {
         }
 
         if (!this.showTranslation) {
-            if (evt.code === 'Space' || evt.code === 'Enter') {
+            if (isNext) {
                 evt.preventDefault();
                 this.showTranslation = true;
                 this.renderCard();
@@ -648,20 +784,30 @@ export class CardStudyModal extends Modal {
             } else if (evt.key === '2') {
                 evt.preventDefault();
                 await this.handleHard();
-            } else if (evt.key === '3' || evt.code === 'Space' || evt.code === 'Enter') {
+            } else if (evt.key === '3' || isNext) {
                 evt.preventDefault();
                 await this.handleGood();
             }
-        } else {
-            if (evt.code === 'ArrowRight' || evt.code === 'Space' || evt.code === 'Enter') {
-                evt.preventDefault();
-                this.handleClassicNext();
-            } else if (evt.code === 'ArrowLeft') {
-                evt.preventDefault();
-                this.handleClassicPrev();
-            }
+        } else if (isNext) {
+            evt.preventDefault();
+            this.handleClassicNext();
         }
     };
+
+    private isFinished(): boolean {
+        return (this.studyMode === 'repetition' && this.cardsQueue.length === 0) ||
+            (this.studyMode === 'classic' && this.currentIndex >= this.cardsQueue.length);
+    }
+
+    private getCurrentCard(): WordCard | undefined {
+        return this.studyMode === 'repetition'
+            ? this.cardsQueue[0]
+            : this.cardsQueue[this.currentIndex];
+    }
+
+    private canGoBack(): boolean {
+        return this.studyMode === 'repetition' ? this.history.length > 0 : this.currentIndex > 0;
+    }
 
     private getCardDisplayContent(card: WordCard): {
         frontText: string;
@@ -699,62 +845,106 @@ export class CardStudyModal extends Modal {
         }
     }
 
+    private pushHistory(card: WordCard) {
+        this.history.push({
+            queue: [...this.cardsQueue],
+            failedInSession: Array.from(this.failedInThisSession),
+            progress: this.plugin.captureProgress(card)
+        });
+        if (this.history.length > 200) this.history.shift();
+    }
+
+    async handleBack() {
+        if (this.busy) return;
+
+        if (this.studyMode === 'classic') {
+            this.handleClassicPrev();
+            return;
+        }
+
+        const entry = this.history.pop();
+        if (!entry) return;
+
+        this.busy = true;
+        try {
+            this.cardsQueue = entry.queue;
+            this.failedInThisSession = new Set(entry.failedInSession);
+            await this.plugin.restoreProgress(entry.progress);
+            this.showTranslation = true;
+            this.renderCard();
+        } finally {
+            this.busy = false;
+        }
+    }
+
     async handleAgain() {
-        const failedCard = this.cardsQueue.shift()!;
+        if (this.busy || this.cardsQueue.length === 0) return;
+        this.busy = true;
+        try {
+            const failedCard = this.cardsQueue[0];
+            this.pushHistory(failedCard);
+            this.cardsQueue.shift();
 
-        if (typeof (this.plugin as any).recordMistake === 'function') {
-            await (this.plugin as any).recordMistake(failedCard, 'again');
-        }
-        if (typeof (this.plugin as any).logActivity === 'function') {
-            await (this.plugin as any).logActivity(true);
-        }
-        if (typeof (this.plugin as any).addFailedWord === 'function') {
-            await (this.plugin as any).addFailedWord(failedCard);
-        }
+            await this.plugin.recordMistake(failedCard, 'again');
+            await this.plugin.logActivity(true);
+            await this.plugin.addFailedWord(failedCard);
 
-        const cardId = `${failedCard.topic}-${failedCard.word}`;
-        this.failedInThisSession.add(cardId);
+            const cardId = `${failedCard.topic}-${failedCard.word}`;
+            this.failedInThisSession.add(cardId);
 
-        this.cardsQueue.push(failedCard);
-        this.showTranslation = false;
-        this.renderCard();
+            this.cardsQueue.push(failedCard);
+            this.showTranslation = false;
+            this.renderCard();
+        } finally {
+            this.busy = false;
+        }
     }
 
     async handleHard() {
-        const hardCard = this.cardsQueue.shift()!;
+        if (this.busy || this.cardsQueue.length === 0) return;
+        this.busy = true;
+        try {
+            const hardCard = this.cardsQueue[0];
+            this.pushHistory(hardCard);
+            this.cardsQueue.shift();
 
-        if (typeof (this.plugin as any).recordMistake === 'function') {
-            await (this.plugin as any).recordMistake(hardCard, 'hard');
-        }
-        if (typeof (this.plugin as any).addFailedWord === 'function') {
-            await (this.plugin as any).addFailedWord(hardCard);
-        }
+            await this.plugin.recordMistake(hardCard, 'hard');
+            await this.plugin.addFailedWord(hardCard);
 
-        if (this.cardsQueue.length > 2) {
-            this.cardsQueue.splice(2, 0, hardCard);
-        } else {
-            this.cardsQueue.push(hardCard);
+            if (this.cardsQueue.length > 2) {
+                this.cardsQueue.splice(2, 0, hardCard);
+            } else {
+                this.cardsQueue.push(hardCard);
+            }
+            this.showTranslation = false;
+            this.renderCard();
+        } finally {
+            this.busy = false;
         }
-        this.showTranslation = false;
-        this.renderCard();
     }
 
     async handleGood() {
-        const currentCard = this.cardsQueue.shift()!;
-        const cardId = `${currentCard.topic}-${currentCard.word}`;
+        if (this.busy || this.cardsQueue.length === 0) return;
+        this.busy = true;
+        try {
+            const currentCard = this.cardsQueue[0];
+            this.pushHistory(currentCard);
+            this.cardsQueue.shift();
+            const cardId = `${currentCard.topic}-${currentCard.word}`;
 
-        if (typeof (this.plugin as any).logActivity === 'function') {
-            await (this.plugin as any).logActivity(false);
-        }
+            await this.plugin.logActivity(false);
 
-        if (this.studyMode === 'repetition') {
-            if (!this.failedInThisSession.has(cardId) && typeof (this.plugin as any).removeFailedWord === 'function') {
-                await (this.plugin as any).removeFailedWord(currentCard);
+            if (this.studyMode === 'repetition') {
+                if (!this.failedInThisSession.has(cardId)) {
+                    await this.plugin.removeFailedWord(currentCard);
+                }
             }
-        }
 
-        this.showTranslation = false;
-        this.renderCard();
+            this.showTranslation = false;
+            this.renderCard();
+        } finally {
+            this.busy = false;
+        }
     }
 
     handleClassicNext() {
@@ -776,44 +966,67 @@ export class CardStudyModal extends Modal {
         }
     }
 
+    private async renderRich(el: HTMLElement, text: string, sourcePath: string) {
+        const md = normalizeTermMarkdown(text);
+        const renderer: any = MarkdownRenderer;
+        try {
+            if (typeof renderer.render === 'function') {
+                await renderer.render(this.app, md, el, sourcePath, this.mdComponent);
+            } else {
+                await renderer.renderMarkdown(md, el, sourcePath, this.mdComponent);
+            }
+        } catch (e) {
+            console.error('Klomimory: markdown render failed', e);
+            el.setText(text);
+        }
+    }
+
     renderCard() {
         const { contentEl } = this;
         contentEl.empty();
         contentEl.addClass('klomimory-modal-content');
 
-        if (this.studyMode === 'repetition' && this.cardsQueue.length === 0) {
+        if (this.isFinished()) {
             this.renderCompletionScreen();
             return;
         }
 
-        const currentCard = this.studyMode === 'repetition'
-            ? this.cardsQueue[0]
-            : this.cardsQueue[this.currentIndex];
-
+        const currentCard = this.getCurrentCard()!;
         const cardContent = this.getCardDisplayContent(currentCard);
+        const isQa = cardContent.cardType === 'qa';
+        const sourcePath = currentCard.sourcePath ?? '';
 
         const topBar = contentEl.createEl('div', { cls: 'klomimory-study-topbar' });
-        topBar.style.display = 'flex';
-        topBar.style.flexDirection = 'column';
-        topBar.style.alignItems = 'flex-start';
-        topBar.style.gap = '8px';
-        topBar.style.marginBottom = '15px';
+        const topRow = topBar.createEl('div', { cls: 'klomimory-study-toprow' });
 
-        const backToTopicsBtn = topBar.createEl('button', { cls: 'klomimory-home-btn' });
-        backToTopicsBtn.style.display = 'inline-flex';
-        backToTopicsBtn.style.alignItems = 'center';
-        backToTopicsBtn.style.gap = '6px';
-        backToTopicsBtn.style.minHeight = '32px';
-
-        const iconSpan = backToTopicsBtn.createSpan();
-        setIcon(iconSpan, 'home');
+        const backToTopicsBtn = topRow.createEl('button', { cls: 'klomimory-home-btn klomimory-icon-btn' });
+        setIcon(backToTopicsBtn.createSpan(), 'home');
         backToTopicsBtn.createSpan({ text: 'Topics' });
         backToTopicsBtn.onclick = async () => await this.finishAndReturnToTopics();
 
-        const metaInfo = topBar.createEl('div');
-        metaInfo.style.display = 'flex';
-        metaInfo.style.flexDirection = 'column';
-        metaInfo.style.gap = '2px';
+        const actions = topRow.createEl('div', { cls: 'klomimory-study-actions' });
+
+        const prevBtn = actions.createEl('button', {
+            cls: 'klomimory-icon-btn',
+            attr: { 'aria-label': 'Previous card (←)' }
+        });
+        setIcon(prevBtn.createSpan(), 'arrow-left');
+        prevBtn.createSpan({ text: 'Back' });
+        prevBtn.disabled = !this.canGoBack();
+        prevBtn.onclick = async () => await this.handleBack();
+
+        const editBtn = actions.createEl('button', {
+            cls: 'klomimory-icon-btn',
+            attr: { 'aria-label': 'Edit this card' }
+        });
+        setIcon(editBtn.createSpan(), 'pencil');
+        editBtn.createSpan({ text: 'Edit' });
+        editBtn.onclick = () => {
+            this.isEditing = true;
+            this.renderEditForm();
+        };
+
+        const metaInfo = topBar.createEl('div', { cls: 'klomimory-study-meta' });
         metaInfo.createEl('div', { text: currentCard.topic, cls: 'klomimory-study-topic' }).style.fontWeight = 'bold';
 
         const counterStr = this.studyMode === 'repetition'
@@ -821,43 +1034,53 @@ export class CardStudyModal extends Modal {
             : `${this.currentIndex + 1} / ${this.cardsQueue.length}`;
         metaInfo.createEl('div', { text: counterStr, cls: 'klomimory-study-counter' }).style.color = 'var(--text-muted)';
 
-        const cardBox = contentEl.createEl('div', { cls: 'klomimory-study-card' });
-        cardBox.style.display = 'flex';
-        cardBox.style.flexDirection = 'column';
-        cardBox.style.alignItems = 'center';
-        cardBox.style.padding = '25px 15px';
-        cardBox.style.margin = '10px 0 20px 0';
-        cardBox.style.backgroundColor = 'var(--background-secondary)';
-        cardBox.style.borderRadius = '12px';
-        cardBox.style.textAlign = 'center';
-        cardBox.style.wordBreak = 'break-word';
-        cardBox.style.boxSizing = 'border-box';
+        const cardBox = contentEl.createEl('div', {
+            cls: isQa ? ['klomimory-study-card', 'is-qa'] : ['klomimory-study-card']
+        });
+        const inner = cardBox.createEl('div', { cls: 'klomimory-card-inner' });
 
-        const wordEl = cardBox.createEl('h1', { text: cardContent.frontText, cls: 'klomimory-study-word' });
-        wordEl.style.fontSize = cardContent.cardType === 'qa' ? '1.4em' : '2em';
-        wordEl.style.margin = '0 0 8px 0';
+        if (isQa) {
+            const frontEl = inner.createEl('div', { cls: ['klomimory-md', 'markdown-rendered', 'klomimory-qa-front'] });
+            void this.renderRich(frontEl, cardContent.frontText, sourcePath);
+        } else {
+            const wordEl = inner.createEl('h1', { text: cardContent.frontText, cls: 'klomimory-study-word' });
+            wordEl.style.fontSize = '2em';
+            wordEl.style.margin = '0 0 8px 0';
 
-        if (cardContent.frontSubText) {
-            const transEl = cardBox.createEl('div', { text: cardContent.frontSubText });
-            transEl.style.fontSize = '1.1em';
-            transEl.style.color = 'var(--text-accent)';
+            if (cardContent.frontSubText) {
+                const transEl = inner.createEl('div', { text: cardContent.frontSubText });
+                transEl.style.fontSize = '1.1em';
+                transEl.style.color = 'var(--text-accent)';
+            }
         }
 
         if (this.showTranslation) {
-            const hr = cardBox.createEl('hr');
-            hr.style.width = '60%';
-            hr.style.margin = '15px 0 12px 0';
+            const back = inner.createEl('div', { cls: 'klomimory-card-back' });
+            back.createEl('hr', { cls: 'klomimory-card-divider' });
 
-            const translationEl = cardBox.createEl('h2', { text: cardContent.backText });
-            translationEl.style.fontSize = cardContent.cardType === 'qa' ? '1.1em' : '1.5em';
-            translationEl.style.margin = '0';
-            translationEl.style.color = 'var(--interactive-accent)';
+            if (isQa) {
+                const backEl = back.createEl('div', { cls: ['klomimory-md', 'markdown-rendered', 'klomimory-qa-back'] });
+                this.renderRich(backEl, cardContent.backText, sourcePath).then(() => {
+                    if (cardBox.scrollHeight > cardBox.clientHeight) {
+                        cardBox.scrollTop = Math.max(0, back.offsetTop - 8);
+                    }
+                });
+            } else {
+                const translationEl = back.createEl('h2', { text: cardContent.backText });
+                translationEl.style.fontSize = '1.5em';
+                translationEl.style.margin = '0';
+                translationEl.style.color = 'var(--interactive-accent)';
 
-            if (cardContent.backSubText) {
-                const backTransEl = cardBox.createEl('div', { text: cardContent.backSubText });
-                backTransEl.style.fontSize = '1em';
-                backTransEl.style.color = 'var(--text-accent)';
-                backTransEl.style.marginTop = '6px';
+                if (cardContent.backSubText) {
+                    const backTransEl = back.createEl('div', { text: cardContent.backSubText });
+                    backTransEl.style.fontSize = '1em';
+                    backTransEl.style.color = 'var(--text-accent)';
+                    backTransEl.style.marginTop = '6px';
+                }
+
+                if (cardBox.scrollHeight > cardBox.clientHeight) {
+                    cardBox.scrollTop = Math.max(0, back.offsetTop - 8);
+                }
             }
         }
 
@@ -895,11 +1118,6 @@ export class CardStudyModal extends Modal {
                 goodBtn.style.color = '#fff';
                 goodBtn.onclick = async () => await this.handleGood();
             } else {
-                if (this.currentIndex > 0) {
-                    const prevBtn = navBox.createEl('button', { text: '← Back' });
-                    prevBtn.style.minHeight = '40px';
-                    prevBtn.onclick = () => this.handleClassicPrev();
-                }
                 if (this.currentIndex < this.cardsQueue.length - 1) {
                     const nextBtn = navBox.createEl('button', { text: 'Next →', cls: 'mod-cta' });
                     nextBtn.style.flex = '1';
@@ -909,10 +1127,144 @@ export class CardStudyModal extends Modal {
                     const finishBtn = navBox.createEl('button', { text: 'Finish', cls: 'mod-cta' });
                     finishBtn.style.flex = '1';
                     finishBtn.style.minHeight = '40px';
-                    finishBtn.onclick = () => this.renderCompletionScreen();
+                    finishBtn.onclick = () => this.handleClassicNext();
                 }
             }
         }
+
+        contentEl.createEl('div', {
+            cls: 'klomimory-hint klomimory-key-hint',
+            text: this.studyMode === 'repetition'
+                ? '← back · Space / → show answer, then Good · 1 Again · 2 Hard · 3 Good'
+                : '← previous · Space / → show answer, then next'
+        });
+    }
+
+    private renderEditForm() {
+        const card = this.getCurrentCard();
+        if (!card) {
+            this.isEditing = false;
+            return;
+        }
+
+        const isQa = (card.type || 'word') === 'qa';
+        const { contentEl } = this;
+        contentEl.empty();
+        contentEl.addClass('klomimory-modal-content');
+
+        contentEl.createEl('h3', { text: 'Edit card' }).style.marginBottom = '4px';
+        contentEl.createEl('div', {
+            text: 'Your session progress stays as it is. The note is updated too.',
+            cls: 'klomimory-hint'
+        }).style.marginBottom = '12px';
+
+        const label = (text: string) => contentEl.createEl('div', { text, cls: 'klomimory-field-label' });
+
+        label(isQa ? 'Question / Term:' : 'Word:');
+        const wordInput = contentEl.createEl('input', { type: 'text', cls: 'klomimory-field' });
+        wordInput.value = card.word;
+
+        let transInput: HTMLInputElement | null = null;
+        if (!isQa) {
+            label('Transcription (optional):');
+            transInput = contentEl.createEl('input', { type: 'text', cls: 'klomimory-field' });
+            transInput.value = card.transcription ?? '';
+        }
+
+        label(isQa ? 'Answer / Definition:' : 'Translation:');
+        let answerField: TextField;
+        if (isQa) {
+            const area = contentEl.createEl('textarea', { cls: 'klomimory-field klomimory-field-area' });
+            area.rows = 8;
+            area.value = card.translation;
+            answerField = area;
+        } else {
+            const inp = contentEl.createEl('input', { type: 'text', cls: 'klomimory-field' });
+            inp.value = card.translation;
+            answerField = inp;
+        }
+
+        if (isQa) {
+            addImageTools(
+                this.app,
+                contentEl,
+                [wordInput, answerField],
+                () => card.sourcePath ?? this.app.workspace.getActiveFile()?.path ?? ''
+            );
+            contentEl.createEl('div', {
+                cls: 'klomimory-hint',
+                text: 'Lines below the first belong to the answer. Blank lines are removed: a blank line ends a card in the note.'
+            });
+        }
+
+        const buttons = contentEl.createEl('div', { cls: 'klomimory-edit-buttons' });
+        const cancelBtn = buttons.createEl('button', { text: 'Cancel' });
+        const saveBtn = buttons.createEl('button', { text: 'Save (Ctrl/Cmd+Enter)', cls: 'mod-cta' });
+
+        const close = () => {
+            this.isEditing = false;
+            this.renderCard();
+        };
+
+        const save = async () => {
+            const fields: CardFields = {
+                word: wordInput.value,
+                translation: answerField.value,
+                transcription: transInput?.value
+            };
+            const error = validateCardFields(isQa ? 'qa' : 'word', fields);
+            if (error) {
+                new Notice(error);
+                return;
+            }
+            saveBtn.disabled = true;
+            try {
+                await this.saveEdit(card, fields);
+            } catch (e) {
+                console.error('Klomimory: failed to save card edit', e);
+                new Notice('Could not save the card. See the console for details.');
+                saveBtn.disabled = false;
+                return;
+            }
+            close();
+        };
+
+        cancelBtn.onclick = close;
+        saveBtn.onclick = save;
+        contentEl.addEventListener('keydown', (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                void save();
+            }
+        });
+
+        wordInput.focus();
+    }
+
+    private async saveEdit(card: WordCard, fields: CardFields) {
+        const oldId = `${card.topic}-${card.word}`;
+
+        const result = await this.plugin.applyCardEdit(card, fields, [...this.allCards, ...this.cardsQueue]);
+
+        const newId = `${card.topic}-${card.word}`;
+        if (newId !== oldId) {
+            if (this.failedInThisSession.delete(oldId)) this.failedInThisSession.add(newId);
+
+            for (const h of this.history) {
+                h.failedInSession = h.failedInSession.map(id => id === oldId ? newId : id);
+                if (h.progress.statsKey === result.oldKey) {
+                    h.progress.statsKey = result.newKey;
+                    if (h.progress.statsEntry) {
+                        h.progress.statsEntry.word = card.word;
+                        h.progress.statsEntry.translation = card.translation;
+                    }
+                }
+            }
+        }
+
+        new Notice(result.savedToFile
+            ? 'Card updated.'
+            : 'Card updated for this session only: could not find it in the note (was it changed?).');
     }
 
     renderCompletionScreen() {
@@ -926,6 +1278,14 @@ export class CardStudyModal extends Modal {
 
         box.createEl('h2', { text: 'Session Complete!' });
         box.createEl('p', { text: `You reviewed all ${this.totalInitialCount} items in this session.` }).style.color = 'var(--text-muted)';
+
+        if (this.canGoBack()) {
+            const backBtn = box.createEl('button', { text: '← Back to last card', cls: 'klomimory-icon-btn' });
+            backBtn.style.width = '100%';
+            backBtn.style.minHeight = '38px';
+            backBtn.style.marginTop = '10px';
+            backBtn.onclick = async () => await this.handleBack();
+        }
 
         const closeBtn = box.createEl('button', { text: 'Back to Topics', cls: 'mod-cta' });
         closeBtn.style.width = '100%';

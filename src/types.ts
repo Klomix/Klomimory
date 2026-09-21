@@ -8,6 +8,9 @@ export interface WordCard {
     transcription?: string;
     topic: string;
     rawLine?: string;
+    rawText?: string;
+    startLine?: number;
+    sourcePath?: string;
     againCount?: number;
     hardCount?: number;
     type?: CardType;
@@ -19,6 +22,20 @@ export interface DailyActivity {
     goodCount?: number;
 }
 
+export interface ProgressSnapshot {
+    statsKey: string;
+    statsEntry?: { word: string; translation: string; againCount: number; hardCount: number };
+    dayKey: string;
+    dayEntry?: DailyActivity;
+    failedWords: WordCard[];
+    streak: {
+        streakCount: number;
+        lastStreakDate: string;
+        streakFreezes: number;
+        freezeProgress: number;
+    };
+}
+
 export interface KlomimorySettings {
     failedWords: WordCard[];
     statsWords: Record<string, {
@@ -28,8 +45,14 @@ export interface KlomimorySettings {
         hardCount: number;
     }>;
     activityLog: Record<string, DailyActivity>;
+
+    streakCount: number;
+    lastStreakDate: string;
     streakFreezes: number;
+    freezeProgress: number;
+    streakMigrated: boolean;
     lastFreezeEarnDate: string;
+
     dailyGoal: number;
     cardOrderMode: CardOrderMode;
     studyMode: StudyMode;
@@ -42,7 +65,11 @@ export const DEFAULT_SETTINGS: KlomimorySettings = {
     failedWords: [],
     statsWords: {},
     activityLog: {},
+    streakCount: 0,
+    lastStreakDate: '',
     streakFreezes: 0,
+    freezeProgress: 0,
+    streakMigrated: false,
     lastFreezeEarnDate: '',
     dailyGoal: 20,
     cardOrderMode: 'word-first',
