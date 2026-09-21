@@ -47,31 +47,32 @@ Join the discussion on Obsidian Forum: [Klomimory — Free SRS Flashcards Plugin
 
 #### The menu when you log in to the app
 <p align="center">
-  <img width="1211" height="749" alt="изображение" src="https://github.com/user-attachments/assets/d3d25374-afc3-4881-8778-99bb05571a24" />
+  <img width="1317" height="759" alt="изображение" src="https://github.com/user-attachments/assets/474e9d9b-cc4e-4ee7-ba65-99c355c175c2" />
 </p>
 
 #### Active Recall mode
 <p align="center">
-  <img width="1224" height="439" alt="изображение" src="https://github.com/user-attachments/assets/fc6ddb6b-3b56-4c91-9037-249d9a230afc" />
+  <img width="1314" height="456" alt="изображение" src="https://github.com/user-attachments/assets/745c11cf-2e16-4a69-b55d-0befd63c2424" />
 </p>
 
 #### The right menu with statistics
 <p align="center">
-  <img width="455" height="475" alt="изображение" src="https://github.com/user-attachments/assets/cfaf0317-8ee0-40bc-9bf1-ca1ecd3895e1" />
+  <img width="520" height="447" alt="изображение" src="https://github.com/user-attachments/assets/b0d698b4-eda6-4165-8db0-476946ef30aa" />
 </p>
+
 #### Detailed Stats & Hard Words
 <p align="center">
-  <img width="1202" height="616" alt="изображение" src="https://github.com/user-attachments/assets/6d5abccc-8a71-48e3-b019-f4a875292903" />
+  <img width="1113" height="598" alt="изображение" src="https://github.com/user-attachments/assets/b8e54d9b-bc3f-4f20-b63e-fcb9421f9792" />
 </p>
 
 #### Terms Mode:
 <p align="center">
-  <img width="1226" height="797" alt="изображение" src="https://github.com/user-attachments/assets/80b115cb-0533-40a2-bced-2d3bae9496a6" />
+  <img width="1306" height="813" alt="изображение" src="https://github.com/user-attachments/assets/82189729-771c-409c-a252-bb9b8bd8997b" />
 </p>
 
 #### Edit Card Menu:
 <p align="center">
-  <img width="1234" height="528" alt="изображение" src="https://github.com/user-attachments/assets/dde4b466-8a53-4bd4-8374-aaa60312efd3" />
+  <img width="1318" height="540" alt="изображение" src="https://github.com/user-attachments/assets/29cbcd88-f82f-40a2-afc2-beb4e75c5f0b" />
 </p>
 
 ---
