@@ -88,7 +88,7 @@ What is the capital of Spain? :: Madrid
 
 ## 💻 Installation
 
-1. Download `main.js`, `manifest.json`, and `styles.css` from the latest [GitHub release](https://github.com/your-repo/klomimory/releases).
+1. Download `main.js`, `manifest.json`, and `styles.css` from the latest [GitHub release](https://github.com/Klomix/Klomimory).
 2. Place them into your Obsidian vault's plugin directory:  
    `<vault>/.obsidian/plugins/klomimory/`
 3. Reload Obsidian and enable **Klomimory** in the Community Plugins tab.
