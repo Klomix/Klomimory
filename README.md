@@ -13,7 +13,7 @@
 
 <p align="center">
     <a href="https://github.com/Klomix/Klomimory" align="center">
-      <img width="1920" height="1080" alt="Текст абзаца" src="https://github.com/user-attachments/assets/10724cce-dbaf-4664-8fd1-a106cdcdd753" />
+      <img width="1920" height="1080" alt="Social preview image Klomimory" src="https://github.com/user-attachments/assets/10724cce-dbaf-4664-8fd1-a106cdcdd753" />
     </a>
 </p>
 
