@@ -138,6 +138,7 @@ Next question :: Answer
    `<vault>/.obsidian/plugins/klomimory/`
 3. Reload Obsidian and enable **Klomimory** in the Community Plugins tab.
 
+If Klomimory is useful, a ⭐ helps other people find it.
 ---
 
 ## 📜 License
