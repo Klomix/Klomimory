@@ -1,4 +1,26 @@
-# Klomimory 
+<p align="center">
+    <a href="https://github.com/Klomix/Klomimory" align="center">
+<img width="558" height="82" alt="изображение-removebg-preview" src="https://github.com/user-attachments/assets/a2ad8aea-0571-4dc8-82e7-fcc10c55fd38" />
+    </a>
+</p>
+<!-- <h1 align="center">Talker</h1> -->
+<h2 align="center"> Now your notes have a photographic memory </h2>
+
+<p align="center">
+  Create interactive flashcards directly in your notes, track your learning statistics, review missed words, and practice with advanced recall modes.
+   <br>
+</p>
+
+<p align="center">
+    <a href="https://github.com/Klomix/Klomimory" align="center">
+      <img width="1920" height="1080" alt="Текст абзаца" src="https://github.com/user-attachments/assets/10724cce-dbaf-4664-8fd1-a106cdcdd753" />
+    </a>
+</p>
+
+<p align="center">
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
+    <a href="https://github.com/Klomix/Klomimory"><img src="https://img.shields.io/github/stars/Klomix/Klomimory?style=social" alt="GitHub"></a>
+</p>
 
 **Klomimory** is a lightweight, active recall and flashcard study plugin for [Obsidian](https://obsidian.md). It transforms markdown lists and notes into interactive study sessions with SRS-like queues, customized direction controls, and statistics tracking.
 
