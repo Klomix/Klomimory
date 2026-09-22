@@ -1,4 +1,4 @@
-# Klomimory 🧠
+# Klomimory 
 
 **Klomimory** is a lightweight, active recall and flashcard study plugin for [Obsidian](https://obsidian.md). It transforms markdown lists and notes into interactive study sessions with SRS-like queues, customized direction controls, and statistics tracking.
 
@@ -37,13 +37,13 @@
 
 ---
 
-## 💬 Discussion
+## Discussion
 
 Join the discussion on Obsidian Forum: [Klomimory — Free SRS Flashcards Plugin](https://forum.obsidian.md/t/klomimory-free-srs-flashcards-plugin-for-language-learning/118242)
 
 ---
 
-## 🎨 Design
+## Design
 
 #### The menu when you log in to the app
 <p align="center">
@@ -77,7 +77,7 @@ Join the discussion on Obsidian Forum: [Klomimory — Free SRS Flashcards Plugin
 
 ---
 
-## 📝 Markdown Syntax Format
+## Markdown Syntax Format
 
 ### Vocabulary Cards
 
@@ -111,7 +111,7 @@ Next question :: Answer
 
 ---
 
-## 🚀 Usage & Keyboard Shortcuts
+## Usage & Keyboard Shortcuts
 
 1. Open any note containing your vocabulary cards.
 2. Click the **Brain icon** in the left ribbon bar or use the command palette (`Ctrl/Cmd + P` → `Klomimory: Start Study Session`).
@@ -127,11 +127,11 @@ Next question :: Answer
 | `←` | Previous card |
 | `→` | Next card |
 
-> 💡 **Tip:** You can edit any card mid-session — just fix the text and continue without losing your progress.
+> **Tip:** You can edit any card mid-session — just fix the text and continue without losing your progress.
 
 ---
 
-## 💻 Installation
+## Installation
 
 1. Download `main.js`, `manifest.json`, and `styles.css` from the latest [GitHub release](https://github.com/Klomix/Klomimory).
 2. Place them into your Obsidian vault's plugin directory:  
@@ -141,6 +141,6 @@ Next question :: Answer
 If Klomimory is useful, a ⭐ helps other people find it.
 ---
 
-## 📜 License
+## License
 
 [MIT](LICENSE) © Klomix
