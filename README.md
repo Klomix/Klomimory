@@ -1,6 +1,6 @@
 <p align="center">
     <a href="https://github.com/Klomix/Klomimory" align="center">
-<img width="100%" height="auto" alt="Klomimory — advanced spaced repetition plugin for Obsidian" src="https://github.com/user-attachments/assets/a2ad8aea-0571-4dc8-82e7-fcc10c55fd38" />
+<img width="552" height="82" alt="Klomimory — advanced spaced repetition plugin for Obsidian" src="https://github.com/user-attachments/assets/a2ad8aea-0571-4dc8-82e7-fcc10c55fd38" />
     </a>
 </p>
 <!-- <h1 align="center">Talker</h1> -->
@@ -13,7 +13,7 @@
 
 <p align="center">
     <a href="https://github.com/Klomix/Klomimory" align="center">
-      <img width="1920" height="1080" alt="Social preview image Klomimory" src="https://github.com/user-attachments/assets/10724cce-dbaf-4664-8fd1-a106cdcdd753" />
+      <img width="100%" height="auto" alt="Social preview image Klomimory" src="https://github.com/user-attachments/assets/10724cce-dbaf-4664-8fd1-a106cdcdd753" />
     </a>
 </p>
 
