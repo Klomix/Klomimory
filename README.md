@@ -80,9 +80,9 @@ The built-in editor provides a clean, distraction-free interface where you can e
 ## Join the Discussion
 If you want to suggest a feature, ask a question, or simply stay updated with **Klomimory**, feel free to join the community on your favorite platform!
 
-- [![Obsidian Forum](https://shields.io)](https://forum.obsidian.md/t/klomimory-free-srs-flashcards-plugin-for-language-learning/118242)<br>
-- [![Reddit](https://shields.io)](https://www.reddit.com/user/Klomix_Dev/)<br>
-- [![Product Hunt](https://shields.io)](https://www.producthunt.com/products/klomimory)<br>
+- [Obsidian Forum](https://forum.obsidian.md/t/klomimory-free-srs-flashcards-plugin-for-language-learning/118242)<br>
+- [Reddit](https://www.reddit.com/user/Klomix_Dev/)<br>
+- [Product Hunt](https://www.producthunt.com/products/klomimory)<br>
 
 ## Markdown Syntax Format
 
